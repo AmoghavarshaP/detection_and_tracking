@@ -12,7 +12,7 @@ import numpy as np
 # image_train = cv.imread('index1.png',1) 				# reads the training image 
 # image_test = cv.imread('index1.png',1)				# reads the testing video
 
-cap = cv.VideoCapture('Video_dataset/Tag0.mp4')
+cap = cv.VideoCapture('Video_dataset/multipleTags.mp4')
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -32,7 +32,7 @@ while cap.isOpened():
     # corners = cv.cornerSubPix(gray, np.float32(centroids), (5, 5), (-1, -1), criteria)
 
     # find Shi-Tomasi corners
-    corners = cv.goodFeaturesToTrack(gray, 20, 0.3, 2)
+    corners = cv.goodFeaturesToTrack(gray, 100, 0.3, 2)
     corners = np.int0(corners)
     # print(corners)
 
