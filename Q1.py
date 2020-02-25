@@ -8,14 +8,36 @@ vid = cv2.VideoCapture('Video_dataset/Tag0.mp4')
 p1 = np.array([[0, 0], [199, 0], [199, 199], [0, 199]], dtype="float32")
 
 
+def warpPerspective(img, homo, dim):
+    # TODO: Get transposed image from main
+
+    warped_image = np.zeros((dim[0], dim[1], 3))
+    for index1 in range(0, img.shape[0]):
+        for index2 in range(0, img.shape[1]):
+            new_vec = np.dot(homo, [index1, index2, 1])
+            new_row, new_col, _ = (new_vec / new_vec[2] + 0.4).astype(int)
+            if 5 < new_row < (dim[0] - 5):
+                if 5 < new_col < (dim[1] - 5):
+                    warped_image[new_row, new_col] = img[index1, index2]
+                    warped_image[new_row - 1, new_col - 1] = img[index1, index2]
+                    warped_image[new_row - 2, new_col - 2] = img[index1, index2]
+                    warped_image[new_row - 3, new_col - 3] = img[index1, index2]
+                    warped_image[new_row + 1, new_col + 1] = img[index1, index2]
+                    warped_image[new_row + 2, new_col + 2] = img[index1, index2]
+                    warped_image[new_row + 3, new_col + 3] = img[index1, index2]
+
+    # convert matrix to image
+    # warped_image = np.array(warped_image, dtype=np.uint8)
+    # warped_image = cv2.transpose(warped_image)
+    # TODO: Take transpose of image in main
+    return np.array(warped_image, dtype=np.uint8)
+
+
 def tag_id(imager):
     ret, thresh = cv2.threshold(imager, 127, 255, cv2.THRESH_BINARY)
     crop = thresh[50:150, 50:150]
 
-    cell_1 = crop[37, 37]
-    cell_2 = crop[37, 63]
-    cell_3 = crop[63, 63]
-    cell_4 = crop[63, 37]
+    cell_1, cell_2, cell_3, cell_4 = crop[37, 37], crop[37, 63], crop[63, 63], crop[63, 37]
 
     cell_1 = 1 if cell_1 == 255 else 0
     cell_2 = 1 if cell_2 == 255 else 0
@@ -77,8 +99,8 @@ def detect_corners(cap):
         # finding child contour
     contour_num = []
     for h in hierarchy[0]:
-            if h[3] != -1:
-                contour_num.append(h[3])
+        if h[3] != -1:
+            contour_num.append(h[3])
 
     temp_corners = []
 
@@ -86,7 +108,7 @@ def detect_corners(cap):
     corners = []
 
     for cntr_nums in contour_num:
-        epsilon = 0.1 * cv2.arcLength(contours[cntr_nums], True)
+        epsilon = 0.01 * cv2.arcLength(contours[cntr_nums], True)
         approx = cv2.approxPolyDP(contours[cntr_nums], epsilon, True)
 
         # sorting out the case of more than 4 corners that is not rectangle
@@ -101,7 +123,7 @@ def detect_corners(cap):
 
     for curner in temp_corners:
         cntr_area = cv2.contourArea(curner)
-        if 700 < cntr_area < 5000:
+        if 700 < cntr_area < 6837:
             req_corners.append(curner)
     return req_corners
     # cv2.drawContours(frame, req_corners, -1, (255, 0, 0), 3)
@@ -113,23 +135,39 @@ def detect_corners(cap):
     # cap.release()
 
 
-def homographyFunction(p2):
-    A_Matrix = []
-    # p2 = ordering(p2)
-    for points in range(len(p2)):
-        x_1, y_1 = p1[points][0], p1[points][1]
-        x_2, y_2 = p2[points]
-        A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2*x_1, -x_2*y_1, -x_2]])
-        A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2*x_1, -y_2*y_1, -y_2]])
+# def homographyFunction(p2):
+#     A_Matrix = []
+#     p2 = ordering(p2)
+#     for points in range(len(p2)):
+#         x_1, y_1 = p1[points]
+#         x_2, y_2 = p2[points]
+#         A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2*x_1, -x_2*y_1, -x_2]])
+#         A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2*x_1, -y_2*y_1, -y_2]])
+#
+#     A_Matrix = np.array(A_Matrix)
+#     # print(A_Matrix)
+#     A = np.reshape(A_Matrix, (8, 9))
+#     [_, _, V] = np.linalg.svd(A)
+#     H = V[:, -1]
+#     H1 = np.reshape(H, (3, 3))
+#     return H1
 
-    A_Matrix = np.array(A_Matrix)
-    # print(A_Matrix)
-    A = np.reshape(A_Matrix, (8, 9))
-    [_, _, V] = np.linalg.svd(A)
-    H = V[:, -1]
-    H1 = np.reshape(H, (3, 3))
-    return H1
+def homographyFunction(p):
+    A = []
+    p2 = ordering(p)
 
+    for i in range(0, len(p1)):
+        x, y = p1[i][0], p1[i][1]
+        u, v = p2[i][0], p2[i][1]
+        A.append([x, y, 1, 0, 0, 0, -u * x, -u * y, -u])
+        A.append([0, 0, 0, x, y, 1, -v * x, -v * y, -v])
+    A = np.array(A)
+    U, S, Vh = np.linalg.svd(A)
+    l = Vh[-1, :] / Vh[-1, -1]
+    h = np.reshape(l, (3, 3))
+    # print(l)
+    # print(h)
+    return h
 
 def ordering(points):
     rect = np.zeros((4, 2), dtype="float32")
@@ -161,11 +199,12 @@ def run(frame):
         # print(corner_rows)
         homo = homographyFunction(ordering(corner_rows))
 
-        warped_img = cv2.warpPerspective(frame, homo, (200, 200))
+        # warped_img = cv2.warpPerspective(frame, homo, (200, 200))
+        # warped_img = warpPerspective(frame, homo, (200, 200))
         # gray_w_img = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
-        cv2.imshow("Outline", frame)
-        cv2.imshow("Image_Warped", warped_img)
-    if cv2.waitKey(1) & 0xff == 27:
+        # cv2.imshow("Image_Warped", warped_img)
+    cv2.imshow("Outline", frame)
+    if cv2.waitKey(1) & 0xff == ord('q'):
         cv2.destroyAllWindows()
 
     # cv2.imshow("Contours", frame)
