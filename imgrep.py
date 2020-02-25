@@ -1,6 +1,6 @@
 # Code for feature extraction corner detection
 # Importing the libraries
-import cv2 as cv
+import cv2
 import numpy as np
 # import imgproc
 # import argparse
@@ -12,12 +12,13 @@ import numpy as np
 # image_train = cv.imread('index1.png',1) 				# reads the training image 
 # image_test = cv.imread('index1.png',1)				# reads the testing video
 
-cap = cv.VideoCapture('Video_dataset/multipleTags.mp4')
+cap = cv2.VideoCapture('Video_dataset/multipleTags.mp4')
 
 while cap.isOpened():
-    ret, frame = cap.read()
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    							    # Converts the gray image to float32 format because corner Harris accepts image in float32 format.
+    _, frame = cap.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+    # Converts the gray image to float32 format because corner Harris accepts image in float32 format.
 
     # # find Harris corners
     # gray = np.float32(gray)
@@ -32,24 +33,20 @@ while cap.isOpened():
     # corners = cv.cornerSubPix(gray, np.float32(centroids), (5, 5), (-1, -1), criteria)
 
     # find Shi-Tomasi corners
-    corners = cv.goodFeaturesToTrack(gray, 100, 0.3, 2)
-    corners = np.int0(corners)
+    # corners = cv.goodFeaturesToTrack(gray, 100, 0.3, 2)
+    # corners = np.int0(corners)
     # print(corners)
 
     # draw corners in video frames
-    for c in corners:
-        i, j = c.ravel()
+    # for c in corners:
+        # i, j = c.ravel()
         # print('i:', i, 'j:', j)
-        cv.circle(frame, (i, j), 3, 255, -1)
+        # cv.circle(frame, (i, j), 3, 255, -1)
         # print(corners[i])
 
-    cv.imshow('frame', frame)					# Displays the image
-    # cv.imshow('frame', gray)
-    if cv.waitKey(1) & 0xFF == ord('q'):
-        cv.destroyAllWindows()
+    cv2.imshow('frame', thresh)					# Displays the image
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
         break
 
 cap.release()
-
-
-# cv.imwrite("tag.png",image)  					# Saves the image to the folder with the name tag.png
