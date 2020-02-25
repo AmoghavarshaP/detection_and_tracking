@@ -2,6 +2,7 @@
 # Importing the libraries
 import cv2
 import numpy as np
+import copy
 # import imgproc
 # import argparse
 
@@ -17,7 +18,14 @@ cap = cv2.VideoCapture('Video_dataset/multipleTags.mp4')
 while cap.isOpened():
     _, frame = cap.read()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+    gaussian_blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    canny_image = cv2.Canny(gaussian_blur, 75, 200)
+    cnny_img = copy.copy(canny_image)
+    # _, thresh = cv2.threshold(gry, 127, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(cnny_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.drawContours(frame, contours, -1, (255, 0, 0), 2)
+
+    # thresh = cv2.drawContours(thresh, contours, -1, (0, 0, 255), 5)
     # Converts the gray image to float32 format because corner Harris accepts image in float32 format.
 
     # # find Harris corners
@@ -44,7 +52,39 @@ while cap.isOpened():
         # cv.circle(frame, (i, j), 3, 255, -1)
         # print(corners[i])
 
-    cv2.imshow('frame', thresh)					# Displays the image
+    # finding child contour
+    contour_num = []
+    for h in hierarchy[0]:
+        if h[3] != -1:
+            contour_num.append(h[3])
+
+    temp_corners = []
+    req_corners = []
+    # approx = []
+    corners = []
+
+    for cntr_nums in contour_num:
+        epsilon = 0.1 * cv2.arcLength(contours[cntr_nums], True)
+        approx = cv2.approxPolyDP(contours[cntr_nums], epsilon, True)
+
+        # sorting out the case of more than 4 corners that is not rectangle
+        if len(approx) < 5:
+            epsilon = 0.1 * cv2.arcLength(contours[cntr_nums - 1], True)
+            approx = cv2.approxPolyDP(contours[cntr_nums - 1], epsilon, True)
+            corners.append(approx)
+
+    for corner in corners:
+        if len(corner) == 4:
+            temp_corners.append(corner)
+
+    for curner in temp_corners:
+        cntr_area = cv2.contourArea(curner)
+        if 1700 < cntr_area < 17000:
+            req_corners.append(curner)
+
+    cv2.drawContours(frame, req_corners, -1, (255, 0, 0), 3)
+
+    cv2.imshow('frame', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
         break
