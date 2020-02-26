@@ -5,7 +5,8 @@ import copy
 # image = cv2.imread('reference_images/ref_marker.png', 0)
 
 p1 = np.array([[0, 0], [199, 0], [199, 199], [0, 199]], dtype="float32")
-
+lena_img = cv2.imread('reference_images/Lena.png', 1)
+lena_img = cv2.resize(lena_img, (199, 199))
 # def warpPerspective(img, homo, dim):
 #     cv2.transpose(img)
 #     warped_image = np.zeros((dim[0], dim[1], 3))
@@ -133,9 +134,10 @@ def detect_corners(cap):
 
 def homographyFunction(p2, dest):
     A_Matrix = []
-    p_1 = ordering(dest)
+    p1 = dest
+    # p_1 = ordering(dest)
     for points in range(len(p2)):
-        x_1, y_1 = p_1[points]
+        x_1, y_1 = p1[points]
         x_2, y_2 = p2[points]
         A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2 * x_1, -x_2 * y_1, -x_2]])
         A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2 * x_1, -y_2 * y_1, -y_2]])
@@ -200,6 +202,18 @@ def ordering(points):
 #         return p1
 
 
+def tag_reorientation(orient):
+    if orient == 'Top_Left':
+        new_orient = np.array([[199, 199], [0, 199], [0, 0], [199, 0]])
+    elif orient == 'Top_Right':
+        new_orient = np.array([[199, 0], [199, 199], [0, 199], [0, 0]])
+    elif orient == 'Bottom_Left':
+        new_orient = np.array([[0, 199], [0, 0], [199, 0], [199, 199]])
+    elif orient == 'Bottom_Right':
+        new_orient = np.array([[0, 0], [199, 0], [199, 199], [0, 199]])
+    return new_orient
+
+
 def run(frame, dst):
     # cv2.imshow('frame', frame)
     # frames = copy.copy(frame)
@@ -220,6 +234,15 @@ def run(frame, dst):
         cv2.imshow("Image_Warped", gray_w_img)
         ID, orientation = tag_id(gray_w_img)  # Updated till here
         print(ID, orientation)
+        position = tag_reorientation(orientation)
+        # print('New ID:', ID)
+
+        new_homo, _ = cv2.findHomography(ordering(corner_rows), position)
+        new_homo = np.linalg.inv(new_homo)
+        lena_warp = cv2.warpPerspective(lena_img, new_homo, (frame.shape[1], frame.shape[0]))
+        new_lena = cv2.add(lena_warp, frame)
+        cv2.imshow('lena_warped', new_lena)
+
     cv2.imshow("Contours", frame)
         # empty = np.full(frame.shape, 0, dtype='uint8')
         # if orientation:
