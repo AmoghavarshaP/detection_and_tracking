@@ -2,8 +2,6 @@ import cv2
 import numpy as np
 import copy
 
-# image = cv2.imread('reference_images/ref_marker.png', 0)
-
 p1 = np.array([[0, 0], [199, 0], [199, 199], [0, 199]], dtype="float32")
 lena_img = cv2.imread('reference_images/Lena.png', 1)
 lena_img = cv2.resize(lena_img, (199, 199))
@@ -123,50 +121,6 @@ def detect_corners(cap):
         if 700 < cntr_area < 6837:
             req_corners.append(curner)
     return req_corners
-    # cv2.drawContours(frame, req_corners, -1, (255, 0, 0), 3)
-    #
-    # cv2.imshow('frame', frame)
-    # if cv2.waitKey(1) & 0xFF == ord('q'):
-    #     cv2.destroyAllWindows()
-    #     break
-    # cap.release()
-
-
-def homographyFunction(p2, dest):
-    A_Matrix = []
-    p1 = dest
-    # p_1 = ordering(dest)
-    for points in range(len(p2)):
-        x_1, y_1 = p1[points]
-        x_2, y_2 = p2[points]
-        A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2 * x_1, -x_2 * y_1, -x_2]])
-        A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2 * x_1, -y_2 * y_1, -y_2]])
-
-    A_Matrix = np.array(A_Matrix)
-    # print(A_Matrix)
-    A = np.reshape(A_Matrix, (8, 9))
-    [_, _, V] = np.linalg.svd(A)
-    H = V[:, -1]
-    H1 = np.reshape(H, (3, 3))
-    return H1
-
-
-# def homographyFunction(p):
-#     A = []
-#     p2 = ordering(p)
-#
-#     for i in range(0, len(p1)):
-#         x, y = p1[i][0], p1[i][1]
-#         u, v = p2[i][0], p2[i][1]
-#         A.append([x, y, 1, 0, 0, 0, -u * x, -u * y, -u])
-#         A.append([0, 0, 0, x, y, 1, -v * x, -v * y, -v])
-#     A = np.array(A)
-#     U, S, Vh = np.linalg.svd(A)
-#     l = Vh[-1, :] / Vh[-1, -1]
-#     h = np.reshape(l, (3, 3))
-#     # print(l)
-#     # print(h)
-#     return h
 
 
 def ordering(points):
@@ -186,22 +140,6 @@ def ordering(points):
     return rect
 
 
-# def LocationofTag(location):
-#     #location=["BR","TR","TL","BL"]
-#     if location=='Bottom_Right':
-#         p1=np.array([[0,0],[199,0],[199,199],[0,199]],dtype=float32)
-#         return p1
-#     elif location=="Top_Right":
-#         p1=np.array([[199,0],[199,199],[0,199],[0,0]],dtype=float32)
-#         return p1
-#     elif location=="Top_Left":
-#         p1=np.array([[199,199],[0,199],[0,0],[199,0]],dtype=float32)
-#         return p1
-#     elif location=="Bottom_Left":
-#         p1=np.array([[0,199],[0,0],[199,0],[199,199]],dtype=float32)
-#         return p1
-
-
 def tag_reorientation(orient):
     if orient == 'Top_Left':
         new_orient = np.array([[199, 199], [0, 199], [0, 0], [199, 0]])
@@ -214,6 +152,27 @@ def tag_reorientation(orient):
     return new_orient
 
 
+def homographyFunction(p2,p1):
+    A=[]
+    # p2=ordering(p0)
+    for points in range(0, len(p1)):
+        x1,y1=p1[points][0],p1[points][1]
+        x2,y2=p2[points][0],p2[points][1]
+        A.append([x1,y1,1,0,0,0,-x2*x1,-x2*y1,-x2])
+        A.append([0,0,0,x1,y1,1,-y2*x1,-y2*y1,-y2])
+    A=np.array(A)
+    U, S, V = np.linalg.svd(A)
+    # A = np.reshape(A, (8, 9))
+    # H = V[:, -1]
+    # H1 = np.reshape(H, (3, 3))
+    H = V[8, :] / V[8, 8]
+    H1 = np.reshape(H, (3, 3))
+    return H1
+
+
+def warpPerspective()
+
+
 def run(frame, dst):
     # cv2.imshow('frame', frame)
     # frames = copy.copy(frame)
@@ -222,11 +181,12 @@ def run(frame, dst):
     for i in range(len(Corners)):
         cv2.drawContours(frame, [Corners[i]], -1, (255, 0, 0), 3)
         # cv2.imshow("Contours", frame)
-        corner_rows = np.reshape(Corners[i], (4, 2))
-        # corner_rows = Corners[i][:, 0]
+        corner_rows = Corners[i][:, 0]
+        # corner_rows = np.reshape(Corners[i], (4, 2))
         # print(corner_rows)
-        homo, _ = cv2.findHomography(ordering(corner_rows), ordering(dst))
-        #homo = homographyFunction(ordering(corner_rows), dst)
+        # homo, _ = cv2.findHomography(ordering(corner_rows), ordering(dst))
+        homo = homographyFunction(ordering(dst), ordering(corner_rows))
+        # homo = homographyFunction(ordering(corner_rows), ordering(dst))
         # cv2.invert(homo)
         warped_img = cv2.warpPerspective(frame, homo, (200, 200))
         # warped_img = warpPerspective(frame, homo, (200, 200))
@@ -235,13 +195,12 @@ def run(frame, dst):
         ID, orientation = tag_id(gray_w_img)
         print(ID, orientation)
         position = tag_reorientation(orientation)
-        # print('New ID:', ID)
 
         new_homo, _ = cv2.findHomography(ordering(corner_rows), position)
         new_homo = np.linalg.inv(new_homo)
         lena_warp = cv2.warpPerspective(lena_img, new_homo, (frame.shape[1], frame.shape[0]))
         new_lena = cv2.add(lena_warp, frame)
-        cv2.imshow('lena_warped', new_lena) # Updated till here
+        cv2.imshow('lena_warped', new_lena)     # Updated till here
 
     cv2.imshow("Contours", frame)
         # empty = np.full(frame.shape, 0, dtype='uint8')
@@ -277,23 +236,21 @@ def run(frame, dst):
     #
 
 
-# print("Select")
-vid = cv2.VideoCapture('Video_dataset/Tag0.mp4')
+choice = int(input("Select option 0. Tag0    1. Tag1     2. Tag2     3. Multiple Tags: "))
+
+if choice == 0:
+    vid = cv2.VideoCapture('Video_dataset/Tag0.mp4')
+elif choice == 1:
+    vid = cv2.VideoCapture('Video_dataset/Tag1.mp4')
+elif choice == 2:
+    vid = cv2.VideoCapture('Video_dataset/Tag2.mp4')
+elif choice == 3:
+    vid = cv2.VideoCapture('Video_dataset/multipleTags.mp4')
 
 while vid.isOpened():
     _, frm = vid.read()
-    # if flag == False:
-    #     break
     resize_image = cv2.resize(frm, (0, 0), fx=0.5, fy=0.5)
     run(resize_image, p1)
     if cv2.waitKey(1) & 0xff == ord('q'):
         cv2.destroyAllWindows()
 vid.release()
-
-# if cap:
-#     while True:
-#         # Corners = detect_corners(cap)
-#         Homo = homographyFunction(Corners)
-#     # cap.release()
-# else:
-#     pass
