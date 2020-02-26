@@ -131,28 +131,66 @@ def detect_corners(cap):
     # cap.release()
 
 
-def homographyFunction(p2, dest):
-    A_Matrix = []
-    p_1 = ordering(dest)
-    for points in range(len(p2)):
-        x_1, y_1 = p_1[points]
-        x_2, y_2 = p2[points]
-        A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2 * x_1, -x_2 * y_1, -x_2]])
-        A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2 * x_1, -y_2 * y_1, -y_2]])
+# def homographyFunction(p2, dest): #wrong
+#     A_Matrix = []
+#     p1 = ordering(dest)
+#     for points in range(len(p2)):
+#         x_1, y_1 = p1[points]
+#         x_2, y_2 = p2[points]
+#         A_Matrix.append([[x_1, y_1, 1, 0, 0, 0, -x_2 * x_1, -x_2 * y_1, -x_2]])
+#         A_Matrix.append([[0, 0, 0, x_1, y_1, 1, -y_2 * x_1, -y_2 * y_1, -y_2]])
+#
+#     A_Matrix = np.array(A_Matrix)
+#     # print(A_Matrix)
+#     A = np.reshape(A_Matrix, (8, 9))
+#     [_, _, V] = np.linalg.svd(A)
+#     H = V[:, -1]
+#     H1 = np.reshape(H, (3, 3))
+#     return H1
 
-    A_Matrix = np.array(A_Matrix)
-    # print(A_Matrix)
-    A = np.reshape(A_Matrix, (8, 9))
-    [_, _, V] = np.linalg.svd(A)
-    H = V[:, -1]
-    H1 = np.reshape(H, (3, 3))
-    return H1
+# def homographyFunction(p,p1): #ours with certain adjustments
+#     A=[]
+#     p2=ordering(p)
+#
+#     for points in range(0, len(p1)):
+#         x_1,y_1=p1[points][0],p1[points][1]
+#         x_2,y_2=p2[points][0],p2[points][1]
+#         A.append([[x_1,y_1,1,0,0,0,-x_2*x_1,-x_2*y_1,-x_2]])
+#         A.append([[0,0,0,x_1,y_1,1,-y_2*x_1,-y_2*y_1,-y_2]])
+#     A=np.array(A)
+#     U, S, V = np.linalg.svd(A)
+#     # A = np.reshape(A, (8, 9))
+#     # H = V[:, -1]
+#     # H1 = np.reshape(H, (3, 3))
+#     # return H1
+#     H = V[-1, :] / V[-1, -1]
+#     H1 = np.reshape(H, (3, 3))
+#
+#     return H1
+#
+
+def homographyFunction(p,p1):
+# def homograph(p, p1):
+    A = []
+    p2 = ordering(p)
+    for i in range(0, len(p1)):
+        x, y = p1[i][0], p1[i][1]
+        u, v = p2[i][0], p2[i][1]
+        A.append([x, y, 1, 0, 0, 0, -u * x, -u * y, -u])
+        A.append([0, 0, 0, x, y, 1, -v * x, -v * y, -v])
+    A = np.array(A)
+    U, S, Vh = np.linalg.svd(A)
+    l = Vh[-1, :] / Vh[-1, -1]
+    h = np.reshape(l, (3, 3))
+    # print(l)
+    # print(h)
+    return h
 
 
-# def homographyFunction(p):
+# def homographyFunction(p,p1):
+# # def homograph(p, p1):
 #     A = []
 #     p2 = ordering(p)
-#
 #     for i in range(0, len(p1)):
 #         x, y = p1[i][0], p1[i][1]
 #         u, v = p2[i][0], p2[i][1]
@@ -160,10 +198,11 @@ def homographyFunction(p2, dest):
 #         A.append([0, 0, 0, x, y, 1, -v * x, -v * y, -v])
 #     A = np.array(A)
 #     U, S, Vh = np.linalg.svd(A)
-#     l = Vh[-1, :] / Vh[-1, -1]
-#     h = np.reshape(l, (3, 3))
-#     # print(l)
-#     # print(h)
+#     A = np.reshape(A, (8, 9))
+#     H = V[:, -1]
+#     H1 = np.reshape(H, (3, 3))
+#     return H1
+#
 #     return h
 
 
@@ -208,11 +247,14 @@ def run(frame, dst):
     for i in range(len(Corners)):
         cv2.drawContours(frame, [Corners[i]], -1, (255, 0, 0), 3)
         # cv2.imshow("Contours", frame)
-        corner_rows = np.reshape(Corners[i], (4, 2))
-        # corner_rows = Corners[i][:, 0]
+        # corner_rows = np.reshape(Corners[i], (4, 2))
+        corner_rows = Corners[i][:, 0]
         # print(corner_rows)
-        homo, _ = cv2.findHomography(ordering(corner_rows), ordering(dst))
-        #homo = homographyFunction(ordering(corner_rows), dst)
+        # homo, _ = cv2.findHomography(ordering(corner_rows), ordering(dst))
+        # print(dst)
+        # homo, _ = homographyFunction(ordering(corner_rows), ordering(dst))
+        homo = homographyFunction(dst,ordering(corner_rows))
+        # print(homo)
         # cv2.invert(homo)
         warped_img = cv2.warpPerspective(frame, homo, (200, 200))
         # warped_img = warpPerspective(frame, homo, (200, 200))
@@ -255,7 +297,7 @@ def run(frame, dst):
 
 
 # print("Select")
-vid = cv2.VideoCapture('Video_dataset/Tag0.mp4')
+vid = cv2.VideoCapture('Tag0.mp4')
 
 while vid.isOpened():
     _, frm = vid.read()
