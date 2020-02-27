@@ -13,6 +13,8 @@ In this project, an AR Tag is used to project a 3D cube and Lena image on the ta
 
 ## Run
 
+Please open the file in PyCharm. Fixing issues with terminal.
+
 - Download the repo from GitHub: https://github.com/namangupta98/detection_and_tracking
 - Open terminal in the same folder and type the following for Lena superimposition
 ````
