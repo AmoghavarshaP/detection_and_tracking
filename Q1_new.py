@@ -160,7 +160,7 @@ def homographyFunction(p2,p1):
         x2,y2=p2[points][0],p2[points][1]
         A.append([x1,y1,1,0,0,0,-x2*x1,-x2*y1,-x2])
         A.append([0,0,0,x1,y1,1,-y2*x1,-y2*y1,-y2])
-    A=np.array(A)
+    A = np.array(A)
     U, S, V = np.linalg.svd(A)
     # A = np.reshape(A, (8, 9))
     # H = V[:, -1]
@@ -170,16 +170,48 @@ def homographyFunction(p2,p1):
     return H1
 
 
-def warpPerspective()
+def warpTag(fram, homo):
+    inv_homo = np.linalg.inv(homo)
+    fram_gray = cv2.cvtColor(fram, cv2.COLOR_BGR2GRAY)
+    _, img_thresh = cv2.threshold(fram_gray, 127, 255, cv2.THRESH_BINARY)
+    warp_tag = np.zeros((200, 200, 3))
+
+    for i in range(200):
+        for j in range(200):
+            x, y, z = np.matmul(inv_homo, [i, j, 1])
+            if (540 > int(y / z) > 0) and (960 > int(x / z) > 0):
+                warp_tag[i][j][0] = fram_gray[int(y / z)][int(x / z)]
+                warp_tag[i][j][1] = fram_gray[int(y / z)][int(x / z)]
+                warp_tag[i][j][2] = fram_gray[int(y / z)][int(x / z)]
+
+    warp_tag = warp_tag.astype('uint8')
+    return warp_tag
+
+
+def warpLena(lena, homo, size):
+    m, n, o = size
+    lena_warpp = np.zeros((m, n, 3))
+    gray = cv2.cvtColor(lena, cv2.COLOR_BGR2GRAY)
+    ret, grayImage = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+    q, w = grayImage.shape
+    for ii in range(m):
+        for jj in range(n):
+            x, y, z = np.matmul(homo, [ii, jj, 1])
+            if y / z != float('inf') and (x / z != float('inf')):
+                if (int(q) > int(y / z) > 0) and (int(w) > int(x / z) > 0):
+                    lena_warpp[jj][ii][0] = lena[int(y / z)][int(x / z)][0]
+                    lena_warpp[jj][ii][1] = lena[int(y / z)][int(x / z)][1]
+                    lena_warpp[jj][ii][2] = lena[int(y / z)][int(x / z)][2]
+
+    lena_warpp = lena_warpp.astype('uint8')
+    return lena_warpp
 
 
 def run(frame, dst):
-    # cv2.imshow('frame', frame)
-    # frames = copy.copy(frame)
     Corners = detect_corners(frame)
 
     for i in range(len(Corners)):
-        cv2.drawContours(frame, [Corners[i]], -1, (255, 0, 0), 3)
+        cv2.drawContours(frame, [Corners[i]], -1, (255, 0, 0), 1)
         # cv2.imshow("Contours", frame)
         corner_rows = Corners[i][:, 0]
         # corner_rows = np.reshape(Corners[i], (4, 2))
@@ -188,18 +220,28 @@ def run(frame, dst):
         homo = homographyFunction(ordering(dst), ordering(corner_rows))
         # homo = homographyFunction(ordering(corner_rows), ordering(dst))
         # cv2.invert(homo)
-        warped_img = cv2.warpPerspective(frame, homo, (200, 200))
-        # warped_img = warpPerspective(frame, homo, (200, 200))
+        # warped_img = cv2.warpPerspective(frame, homo, (200, 200))
+        warped_img = warpTag(frame, homo)
         gray_w_img = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
         cv2.imshow("Image_Warped", gray_w_img)
         ID, orientation = tag_id(gray_w_img)
         print(ID, orientation)
         position = tag_reorientation(orientation)
 
-        new_homo, _ = cv2.findHomography(ordering(corner_rows), position)
-        new_homo = np.linalg.inv(new_homo)
-        lena_warp = cv2.warpPerspective(lena_img, new_homo, (frame.shape[1], frame.shape[0]))
-        new_lena = cv2.add(lena_warp, frame)
+        new_homo = homographyFunction(position, ordering(corner_rows))
+        # new_homo = np.linalg.inv(new_homo)
+
+        fram = copy.deepcopy(frame)
+
+        lena_warp = warpLena(lena_img, new_homo, frame.shape)
+        # lena_org = copy.deepcopy(lena_warp)
+        lena_gray = cv2.cvtColor(lena_warp, cv2.COLOR_BGR2GRAY)
+        _, lena_thresh = cv2.threshold(lena_gray, 0, 250, cv2.THRESH_BINARY_INV)
+        fram_bit = cv2.bitwise_and(fram, fram, mask=lena_thresh)
+        # lena_warp = cv2.warpPerspective(lena_img, new_homo, (frame.shape[1], frame.shape[0]))
+        new_lena = cv2.add(fram_bit, lena_warp)
+        # cv2.putText(new_lena, [ID + orientation], (corner_rows[0][0] - 50, corner_rows[0][0] - 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        out.write(new_lena)
         cv2.imshow('lena_warped', new_lena)     # Updated till here
 
     cv2.imshow("Contours", frame)
@@ -247,10 +289,13 @@ elif choice == 2:
 elif choice == 3:
     vid = cv2.VideoCapture('Video_dataset/multipleTags.mp4')
 
-while vid.isOpened():
+out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 10, (1920, 1080))
+
+while True:
     _, frm = vid.read()
     resize_image = cv2.resize(frm, (0, 0), fx=0.5, fy=0.5)
     run(resize_image, p1)
     if cv2.waitKey(1) & 0xff == ord('q'):
         cv2.destroyAllWindows()
 vid.release()
+out.release()
