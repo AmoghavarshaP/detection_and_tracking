@@ -22,3 +22,7 @@ python3 Q1_new.py
 ```
 python3 question_2.py
 ```
+
+## Results
+
+https://drive.google.com/drive/folders/1bBNtIiOcpX6tTNRHlQWdCpyqdHL5I4ft
